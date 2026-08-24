@@ -112,9 +112,10 @@ export async function render(container) {
       <div class="card chart-card">
         <div class="chart-head">
           <div class="chart-title">Выработка по дням</div>
-          <div class="chart-value">% нормо-часов к часам явки</div>
+          <div class="chart-value">лично ваша</div>
         </div>
         ${barChart(percentByDay, series.labels, { color: accent })}
+        <p class="muted" style="margin-top:8px">Часы наряда делятся между всеми, кто в нём участвовал — это ваша доля, а не общая выработка бригады по наряду.</p>
       </div>
 
       <div class="btn-row" style="margin-top:6px">

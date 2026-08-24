@@ -50,8 +50,13 @@ export function naryadShares(naryad, lokomotiv, dopRabotyMap, dvoinaya, razryady
   return shares;
 }
 
-// Итог дня. Нормо-часы каждому участнику наряда начисляются полностью (не делятся
-// на число человек в бригаде) — так принято считать выработку в бригаде.
+// Итог дня. Нормо-часы наряда — это время на 1 человека (например, "50 часов на секцию").
+// Если наряд делает бригада из нескольких человек, эти часы делятся между ними поровну —
+// у бригады из 3 человек норма в 50 часов превращается в 16.7 часа на каждого. Поэтому:
+// - totalNormHours (бригадная выработка) считается по ПОЛНЫМ, неделёным часам наряда;
+// - perSlesarNormHours (личная выработка слесаря) считается по часам, делённым на число
+//   участников этого конкретного наряда — так общая % выработки бригады не совпадает
+//   с % выработки отдельного слесаря, и это ожидаемо.
 //
 // Явка (den.prisutstvuyut) — отдельный список "кто сегодня на смене", никак не связанный
 // с тем, кого вписали в наряды. Сдельщина (деньги, нормо-часы) считается только по нарядам
@@ -59,6 +64,7 @@ export function naryadShares(naryad, lokomotiv, dopRabotyMap, dvoinaya, razryady
 export function dayTotals(den, maps) {
   const { lokomotivyMap, dopRabotyMap, razryadyMap, slesariMap } = maps;
   let total = 0;
+  let totalNormHours = 0;
   const perSlesarMoney = new Map();
   const perSlesarNormHours = new Map();
   const naryadParticipants = new Set();
@@ -69,20 +75,22 @@ export function dayTotals(den, maps) {
     const cost = naryadCost(naryad, lokomotiv, dopRabotyMap, den.dvoinaya);
     const hours = naryadNormHours(naryad, lokomotiv, dopRabotyMap);
     const shares = naryadShares(naryad, lokomotiv, dopRabotyMap, den.dvoinaya, razryadyMap, slesariMap);
+    const participants = (naryad.slesariIds || []).filter(id => slesariMap.has(id));
+    const hoursPerPerson = participants.length > 0 ? hours / participants.length : 0;
     total += cost;
+    totalNormHours += hours;
     for (const [id, share] of shares) {
       perSlesarMoney.set(id, (perSlesarMoney.get(id) || 0) + share);
     }
-    for (const id of naryad.slesariIds || []) {
-      if (!slesariMap.has(id)) continue;
+    for (const id of participants) {
       naryadParticipants.add(id);
-      perSlesarNormHours.set(id, (perSlesarNormHours.get(id) || 0) + hours);
+      perSlesarNormHours.set(id, (perSlesarNormHours.get(id) || 0) + hoursPerPerson);
     }
-    naryadRows.push({ naryad, lokomotiv, cost, hours, shares });
+    naryadRows.push({ naryad, lokomotiv, cost, hours, hoursPerPerson, shares });
   }
   const prisutstvuyut = new Set((den.prisutstvuyut || []).filter(id => slesariMap.has(id)));
   const displayed = new Set([...prisutstvuyut, ...naryadParticipants]);
-  return { total, perSlesarMoney, perSlesarNormHours, naryadParticipants, prisutstvuyut, displayed, naryadRows };
+  return { total, totalNormHours, perSlesarMoney, perSlesarNormHours, naryadParticipants, prisutstvuyut, displayed, naryadRows };
 }
 
 // % выработки = нормо-часы, сделанные слесарем за день, от часов его смены в этот день.
@@ -99,18 +107,20 @@ export function periodStats(dniList, maps, dateFrom, dateTo) {
   const perSlesarNormHours = new Map();
   const perSlesarAttendanceHours = new Map();
   const perSlesarDays = new Map();
+  let totalNormHours = 0;
   for (const den of dniList) {
     if (den.date < dateFrom || den.date > dateTo) continue;
-    const { perSlesarMoney: dayMoney, perSlesarNormHours: dayHours, prisutstvuyut } = dayTotals(den, maps);
+    const { perSlesarMoney: dayMoney, perSlesarNormHours: dayHours, totalNormHours: dayTotalHours, prisutstvuyut } = dayTotals(den, maps);
     for (const [id, v] of dayMoney) perSlesarMoney.set(id, (perSlesarMoney.get(id) || 0) + v);
     for (const [id, v] of dayHours) perSlesarNormHours.set(id, (perSlesarNormHours.get(id) || 0) + v);
+    totalNormHours += dayTotalHours;
     const smena = den.smenaChasov || 0;
     for (const id of prisutstvuyut) {
       perSlesarAttendanceHours.set(id, (perSlesarAttendanceHours.get(id) || 0) + smena);
       perSlesarDays.set(id, (perSlesarDays.get(id) || 0) + 1);
     }
   }
-  return { perSlesarMoney, perSlesarNormHours, perSlesarAttendanceHours, perSlesarDays };
+  return { perSlesarMoney, perSlesarNormHours, perSlesarAttendanceHours, perSlesarDays, totalNormHours };
 }
 
 export function periodPercent(normHours, attendanceHours) {
@@ -163,7 +173,7 @@ export function dailySeries(dniList, maps, year, month, slesarIds = null) {
       }
     } else {
       g = totals.total;
-      n = Array.from(totals.perSlesarNormHours.values()).reduce((a, b) => a + b, 0);
+      n = totals.totalNormHours;
       h = totals.prisutstvuyut.size * (den.smenaChasov || 0);
     }
     gross.push(g); attendanceHours.push(h); normHours.push(n);

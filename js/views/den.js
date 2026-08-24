@@ -1,5 +1,5 @@
 import { getDen, saveDen, deleteDen, uid, buildMaps } from '../models.js';
-import { dayTotals, naryadCost, naryadNormHours, slesarPercent } from '../calc.js';
+import { dayTotals, naryadCost, slesarPercent } from '../calc.js';
 import { navigate } from '../router.js';
 import { escapeHtml, money, toast, confirmAction } from './ui.js';
 
@@ -64,10 +64,11 @@ async function drawDay(container, date, den, maps) {
     <h2>Итог дня (сдельщина)</h2>
     <div class="stat-grid">
       <div class="stat-card"><div class="value">${money(totals.total)}</div><div class="label">Общий заработок</div></div>
-      <div class="stat-card"><div class="value">${avgPercentLabel(totals, den.smenaChasov)}</div><div class="label">Средняя выработка</div></div>
+      <div class="stat-card"><div class="value">${totalPercentLabel(totals, den.smenaChasov)}</div><div class="label">Общая выработка</div></div>
     </div>
 
     <h3>По слесарям</h3>
+    <p class="muted" style="margin-top:-6px">У каждого свой % — часы наряда делятся между всеми, кто в нём указан, поэтому он ниже общей выработки бригады.</p>
     <div class="card">
       ${totals.displayed.size === 0 ? '<div class="empty">Пока никого нет — отметьте явку или добавьте наряд.</div>' : Array.from(totals.displayed).map((id) => {
         const s = maps.slesariMap.get(id);
@@ -141,13 +142,11 @@ async function drawDay(container, date, den, maps) {
   });
 }
 
-function avgPercentLabel(totals, smenaChasov) {
+// Общая выработка бригады — по полным (неделёным) часам наряда. У каждого слесаря в отдельности
+// % будет другим (обычно меньше) — его часы наряда делятся на число участников этого наряда.
+function totalPercentLabel(totals, smenaChasov) {
   if (totals.naryadParticipants.size === 0) return '—';
-  let sum = 0;
-  for (const id of totals.naryadParticipants) {
-    sum += slesarPercent(totals.perSlesarNormHours.get(id) || 0, smenaChasov);
-  }
-  return Math.round(sum / totals.naryadParticipants.size) + '%';
+  return Math.round(slesarPercent(totals.totalNormHours, smenaChasov)) + '%';
 }
 
 function renderNaryadRow(row) {

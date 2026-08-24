@@ -66,9 +66,10 @@ export async function render(container, params) {
       <div class="card chart-card">
         <div class="chart-head">
           <div class="chart-title">Выработка по дням</div>
-          <div class="chart-value">% нормо-часов к часам явки</div>
+          <div class="chart-value">общая, вся бригада</div>
         </div>
         ${barChart(percentByDay, dailySeriesData.labels, { color: 'var(--accent)' })}
+        <p class="muted" style="margin-top:8px">Общая выработка — по полным часам нарядов (без деления на бригаду). У каждого слесаря в отдельности % ниже — его часы наряда делятся на число участников этого наряда.</p>
       </div>
 
       <h2>По слесарям</h2>
