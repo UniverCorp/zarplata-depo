@@ -4,12 +4,58 @@ const DEFAULT_SETTINGS = { key: 'main', ndfl: 0.13, zonalnaya: 0.5, avansStart: 
 export const RAZRYAD_MIN = 3;
 export const RAZRYAD_MAX = 6;
 
+// Тарифные ставки депо "Астраханское" на 01.04.2026 (разряды 3-6, работы 2-го уровня).
+const DEFAULT_RAZRYADY = [
+  { razryad: 3, stavka: 143.80, koef: 1.63 },
+  { razryad: 4, stavka: 166.74, koef: 1.89 },
+  { razryad: 5, stavka: 187.03, koef: 2.12 },
+  { razryad: 6, stavka: 203.79, koef: 2.31 },
+];
+
+// Расценочная ведомость депо — только "Диз. вспомогательная группа" по каждому тепловозу/ремонту.
+const DEFAULT_LOKOMOTIVY = [
+  {
+    seria: 'ЧМЭ3', sections: ['A'],
+    remonty: [
+      { tip: 'ТО-3', normaChasov: 16.17, stoimostZaSektsiyu: 2749.22 },
+      { tip: 'ТР-1', normaChasov: 31.8, stoimostZaSektsiyu: 4835.51 },
+    ],
+  },
+  {
+    seria: 'ТЭМ14', sections: ['A'],
+    remonty: [
+      { tip: 'ТО-3', normaChasov: 20.17, stoimostZaSektsiyu: 3350.64 },
+      { tip: 'ТР-1', normaChasov: 58.57, stoimostZaSektsiyu: 8654.30 },
+    ],
+  },
+  {
+    seria: '2ТЭ25КМ', sections: ['A', 'Б'],
+    remonty: [
+      { tip: 'ТО-3', normaChasov: 36.13, stoimostZaSektsiyu: 6142.82 },
+      { tip: 'ТР-1', normaChasov: 89.98, stoimostZaSektsiyu: 15122.94 },
+    ],
+  },
+  {
+    seria: '2ТЭ116', sections: ['A', 'Б'],
+    remonty: [
+      { tip: 'ТО-3', normaChasov: 31.6, stoimostZaSektsiyu: 5372.63 },
+      { tip: 'ТР-1', normaChasov: 66.3, stoimostZaSektsiyu: 11143.04 },
+    ],
+  },
+];
+
+const DEFAULT_SLESARI = [
+  { familia: 'Афанасьева', razryad: 5, active: true, showOnHome: true },
+  { familia: 'Быценко', razryad: 6, active: true, showOnHome: false },
+  { familia: 'Гурьянов', razryad: 5, active: true, showOnHome: false },
+  { familia: 'Медведев', razryad: 4, active: true, showOnHome: false },
+  { familia: 'Иргалиев', razryad: 4, active: true, showOnHome: false },
+];
+
 export async function ensureDefaults() {
   const existing = await getAll('razryady');
   if (existing.length === 0) {
-    for (let r = RAZRYAD_MIN; r <= RAZRYAD_MAX; r++) {
-      await put('razryady', { razryad: r, stavka: 0, koef: 1 });
-    }
+    for (const r of DEFAULT_RAZRYADY) await put('razryady', r);
   } else {
     for (const r of existing) {
       if (r.razryad < RAZRYAD_MIN || r.razryad > RAZRYAD_MAX) {
@@ -22,6 +68,16 @@ export async function ensureDefaults() {
     await put('settings', DEFAULT_SETTINGS);
   } else if (settings.smenaChasovDefault === undefined) {
     await put('settings', { ...DEFAULT_SETTINGS, ...settings });
+  }
+  const lokomotivy = await getAll('lokomotivy');
+  if (lokomotivy.length === 0) {
+    for (const l of DEFAULT_LOKOMOTIVY) {
+      await put('lokomotivy', { ...l, remonty: l.remonty.map(r => ({ ...r, id: uid() })) });
+    }
+  }
+  const slesari = await getAll('slesari');
+  if (slesari.length === 0) {
+    for (const s of DEFAULT_SLESARI) await put('slesari', s);
   }
 }
 
