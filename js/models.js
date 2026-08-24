@@ -54,12 +54,16 @@ const DEFAULT_SLESARI = [
 
 export async function ensureDefaults() {
   const existing = await getAll('razryady');
+  const defaultsByRazryad = new Map(DEFAULT_RAZRYADY.map(r => [r.razryad, r]));
   if (existing.length === 0) {
     for (const r of DEFAULT_RAZRYADY) await put('razryady', r);
   } else {
     for (const r of existing) {
       if (r.razryad < RAZRYAD_MIN || r.razryad > RAZRYAD_MAX) {
         await remove('razryady', r.razryad);
+      } else if (r.stavka === 0 && r.koef === 1 && defaultsByRazryad.has(r.razryad)) {
+        // старая пустая заглушка (ставка 0 / коэф. 1) — ещё не заполнена вручную, подставляем реальные цифры
+        await put('razryady', defaultsByRazryad.get(r.razryad));
       }
     }
   }

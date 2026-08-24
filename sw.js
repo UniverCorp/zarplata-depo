@@ -1,4 +1,4 @@
-const CACHE_NAME = 'zarplata-depo-v3';
+const CACHE_NAME = 'zarplata-depo-v4';
 const APP_SHELL = [
   './',
   './index.html',
